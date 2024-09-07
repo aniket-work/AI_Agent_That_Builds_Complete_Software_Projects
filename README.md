@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Full Article : [https://medium.com/@learn-simplified/how-i-trained-ai-agents-why-you-should-too-5beda74dc57c
+Full Article : [https://medium.com/@learn-simplified/how-about-an-ai-agent-that-builds-complete-software-projects-all-local-8ddda106011c
 
 An Agentic Local Software Developer, Think, Plan, Write Software Project, write test, run & fix test cases, ensure good test coverage, executes code, provide entire project with best practices.
 
