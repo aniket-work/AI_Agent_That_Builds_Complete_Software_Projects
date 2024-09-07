@@ -1,0 +1,11 @@
+{
+  "default_model": "mistral-nemo",
+  "default_provider": "ollama",
+  "max_improvement_attempts": 3,
+  "max_write_attempts": 3,
+  "write_retry_delay": 1,
+  "pylint_threshold": 7.0,
+  "complexipy_threshold": 15,
+  "coverage_threshold": 80,
+  "ollama_api_url": "http://localhost:11434/api"
+}

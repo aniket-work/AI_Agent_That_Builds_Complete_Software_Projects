@@ -1,0 +1,6 @@
+torch
+git+https://github.com/huggingface/transformers
+git+https://github.com/huggingface/accelerate
+nemo-agent
+click
+pywin32
