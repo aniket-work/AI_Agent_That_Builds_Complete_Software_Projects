@@ -18,7 +18,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class NemoAgent:
+
+class CoderAIAgent:
     def __init__(self, task: str):
         self.task = task
         self.config = self.load_config()

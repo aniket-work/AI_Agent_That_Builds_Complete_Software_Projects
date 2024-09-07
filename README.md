@@ -163,14 +163,7 @@ By following these steps, you'll have a fully set up and configured ResearchAgen
 ## Run - AI Agent Training
 
    ```bash 
-   # Run AI Agent
-   (AI_Agent_That_Builds_Complete_Software_Projects) C:\Users\worka\PycharmProjects\AI_Agent_That_Builds_Complete_Software_Projects\research_agents>crewai run
-   
-   # Train AI Agent 
-   (AI_Agent_That_Builds_Complete_Software_Projects) C:\Users\worka\PycharmProjects\AI_Agent_That_Builds_Complete_Software_Projects\research_agents>crewai train -n 4
-   
-   
-   python src/main.py "create a fizzbuzz script"   
+      python src/main.py "create a fizzbuzz script"   
    ```
 
 

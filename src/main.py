@@ -4,7 +4,7 @@ import logging
 import click
 import zipfile
 import shutil
-from nemo_agent import NemoAgent
+from coder_ai_agent import CoderAIAgent
 
 
 @click.command()
@@ -34,12 +34,6 @@ def cli(
     # Store the original working directory
     original_dir = os.getcwd()
 
-    # Check for API keys if using OpenAI or Anthropic
-    if provider == "openai" and not os.getenv("OPENAI_API_KEY"):
-        raise ValueError("OPENAI_API_KEY environment variable is not set")
-    elif provider == "claude" and not os.getenv("ANTHROPIC_API_KEY"):
-        raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
-
     # Read task from file if provided
     if file:
         with open(file, 'r') as f:
@@ -47,7 +41,7 @@ def cli(
     elif not task:
         task = click.prompt("Please enter your task")
 
-    nemo_agent = NemoAgent(task=task)
+    nemo_agent = CoderAIAgent(task=task)
     nemo_agent.run_task()
 
     project_dir = nemo_agent.pwd
