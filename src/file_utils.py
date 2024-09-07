@@ -4,40 +4,73 @@ import ast
 import time
 import logging
 from contextlib import contextmanager
+
+import pywintypes
 import win32file
 import win32con
+import winerror
+
 from constants import FILE_CONTENT_PATTERN
 
 logger = logging.getLogger(__name__)
 
+
+
 @contextmanager
-def file_lock(file_path: str):
+def file_lock(self, file_path, timeout=30):
     lock_path = f"{file_path}.lock"
     file_handle = None
-    try:
-        file_handle = win32file.CreateFile(
-            lock_path,
-            win32con.GENERIC_READ | win32con.GENERIC_WRITE,
-            0,  # Exclusive access
-            None,
-            win32con.OPEN_ALWAYS,
-            win32con.FILE_ATTRIBUTE_NORMAL,
-            None
-        )
-        win32file.LockFileEx(file_handle, win32con.LOCKFILE_EXCLUSIVE_LOCK | win32con.LOCKFILE_FAIL_IMMEDIATELY, 0, -0x10000, 0)
-        yield
-    except OSError as e:
-        if e.winerror == 33:  # ERROR_LOCK_VIOLATION
-            raise IOError("File is locked by another process")
-        raise
-    finally:
-        if file_handle:
-            win32file.UnlockFileEx(file_handle, 0, -0x10000, 0)
-            win32file.CloseHandle(file_handle)
+    start_time = time.time()
+
+    while True:
+        try:
+            # Open the lock file
+            file_handle = win32file.CreateFile(
+                lock_path,
+                win32con.GENERIC_READ | win32con.GENERIC_WRITE,
+                win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
+                None,
+                win32con.OPEN_ALWAYS,
+                win32con.FILE_ATTRIBUTE_NORMAL,
+                None
+            )
+
+            # Create an OVERLAPPED structure
+            overlapped = pywintypes.OVERLAPPED()
+
+            # Attempt to acquire the lock
+            win32file.LockFileEx(file_handle, win32con.LOCKFILE_EXCLUSIVE_LOCK, 0, -0x10000, overlapped)
+
+            self.logger.info(f"Lock acquired for file: {file_path}")
+            yield
+            break  # Lock acquired successfully, exit the loop
+
+        except Exception as e:
+            if e.winerror == winerror.ERROR_LOCK_VIOLATION:
+                if time.time() - start_time > timeout:
+                    self.logger.error(f"Timeout waiting for lock on file: {file_path}")
+                    raise Exception("Timeout waiting for file lock")
+                time.sleep(0.1)  # Wait a bit before retrying
+            else:
+                self.logger.error(f"Unexpected error while acquiring lock for file {file_path}: {str(e)}")
+                raise
+        finally:
+            if file_handle:
+                try:
+                    # Release the lock
+                    win32file.UnlockFileEx(file_handle, 0, -0x10000, overlapped)
+                    self.logger.info(f"Lock released for file: {file_path}")
+                except pywintypes.error as e:
+                    self.logger.error(f"Error releasing lock for file {file_path}: {str(e)}")
+                finally:
+                    win32file.CloseHandle(file_handle)
+
+        # Remove the lock file
         try:
             os.remove(lock_path)
-        except OSError:
-            pass
+            self.logger.info(f"Lock file removed: {lock_path}")
+        except OSError as e:
+            self.logger.warning(f"Failed to remove lock file {lock_path}: {str(e)}")
 
 def robust_write_file(file_path: str, content: str, max_attempts: int, retry_delay: int) -> bool:
     logger.info(f"Attempting to write to file: {file_path}")

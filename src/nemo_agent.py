@@ -12,7 +12,11 @@ from constants import (
     CONFIG_PATH, COVERAGERC_CONTENT, PYTEST_CMD, COVERAGE_PATTERN,
     IMPROVEMENT_PROMPT, TEST_IMPROVEMENT_PROMPT, VALIDATION_PROMPT
 )
+from groq_api import GroqAPI
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class NemoAgent:
     def __init__(self, task: str):
@@ -36,7 +40,10 @@ class NemoAgent:
         return f"project_{random.randint(100, 999)}"
 
     def setup_llm(self):
-        return OllamaAPI(self.config['default_model'], self.config['ollama_api_url'])
+        #return OllamaAPI(self.config['default_model'], self.config['ollama_api_url'])
+        return GroqAPI(model="mixtral-8x7b-32768")
+
+    import logging
 
     def run_task(self):
         self.logger.info(f"Current working directory: {os.getcwd()}")
@@ -44,30 +51,40 @@ class NemoAgent:
         self.create_project_with_uv()
         self.implement_solution()
 
-        pylint_score, complexipy_score, pylint_output, complexipy_output = check_code_quality("main.py", self.pwd)
+        try:
+            pylint_score, complexipy_score, pylint_output, complexipy_output = check_code_quality("main.py", self.pwd)
+            self.logger.info(
+                f"Initial code quality check - Pylint score: {pylint_score}, Complexipy score: {complexipy_score}")
+        except Exception as e:
+            self.logger.error(f"Error in initial code quality check: {str(e)}")
+            return
 
         code_check_attempts = 1
         while code_check_attempts < self.config['max_improvement_attempts']:
-            if pylint_score < self.config['pylint_threshold'] and complexipy_score > self.config[
-                'complexipy_threshold']:
-                self.improve_code("main.py", pylint_score, complexipy_score, pylint_output, complexipy_output)
-                pylint_score, complexipy_score, pylint_output, complexipy_output = check_code_quality("main.py",
-                                                                                                      self.pwd)
-            else:
+            try:
+                if pylint_score is None or complexipy_score is None:
+                    self.logger.error("Pylint score or Complexipy score is None. Cannot proceed with code improvement.")
+                    break
+
+                if pylint_score < self.config['pylint_threshold'] or complexipy_score > self.config[
+                    'complexipy_threshold']:
+                    self.logger.info(f"Attempt {code_check_attempts}: Improving code...")
+                    self.improve_code("main.py", pylint_score, complexipy_score, pylint_output, complexipy_output)
+
+                    pylint_score, complexipy_score, pylint_output, complexipy_output = check_code_quality("main.py",
+                                                                                                          self.pwd)
+                    self.logger.info(
+                        f"After improvement - Pylint score: {pylint_score}, Complexipy score: {complexipy_score}")
+                else:
+                    self.logger.info("Code quality meets the thresholds. No further improvements needed.")
+                    break
+            except Exception as e:
+                self.logger.error(f"Error during code improvement attempt {code_check_attempts}: {str(e)}")
                 break
+
             code_check_attempts += 1
 
-        test_check_attempts = 1
-        while test_check_attempts < self.config['max_improvement_attempts']:
-            tests_passed, coverage, test_output = self.run_tests()
-            if not tests_passed or coverage < self.config['coverage_threshold']:
-                self.improve_test_file(test_output)
-                tests_passed, coverage, test_output = self.run_tests()
-            else:
-                break
-            test_check_attempts += 1
-
-        self.logger.info("Task completed. Please review the output and make any necessary manual adjustments.")
+        self.logger.info(f"Code improvement process completed after {code_check_attempts} attempts.")
 
     def ensure_uv_installed(self):
         try:
@@ -105,6 +122,8 @@ class NemoAgent:
             raise
 
     def implement_solution(self, max_attempts=3):
+        self.logger.info(f"Starting implementation for task: {self.task}")
+        self.logger.info(f"Working directory: {self.pwd}")
         prompt = f"""
         Create a comprehensive implementation for the task: {self.task}.
         You must follow these rules strictly:
@@ -137,25 +156,32 @@ class NemoAgent:
 
         for attempt in range(max_attempts):
             self.logger.info(f"Attempt {attempt + 1} to implement solution")
-            solution = self.llm.generate(prompt)
-            self.logger.info(f"Received solution:\n{solution}")
+            try:
+                solution = self.llm.generate(prompt)
+                self.logger.info(f"Received solution (first 100 characters):\n{solution[:100]}...")
+            except Exception as e:
+                self.logger.error(f"Error generating solution: {str(e)}")
+                continue
 
             uv_commands = [line.strip() for line in solution.split("\n") if
                            line.strip().strip('.').startswith("uv add")]
             for command in uv_commands:
                 try:
+                    self.logger.info(f"Executing command: {command}")
                     subprocess.run(command, shell=True, check=True, cwd=self.pwd)
-                    self.logger.info(f"Executed command: {command}")
+                    self.logger.info(f"Successfully executed command: {command}")
                 except subprocess.CalledProcessError as e:
                     self.logger.error(f"Failed to execute command: {command}. Error: {str(e)}")
 
-            success = self.process_file_changes(solution)
-
-            if success:
-                self.logger.info("All files created successfully and passed pylint check")
-                return True
-
-            self.logger.warning(f"Attempt {attempt + 1} failed to create the correct files or pass pylint. Retrying...")
+            try:
+                success = self.process_file_changes(solution)
+                if success:
+                    self.logger.info("All files created successfully and passed pylint check")
+                    return True
+                else:
+                    self.logger.warning(f"Attempt {attempt + 1} failed to create the correct files or pass pylint.")
+            except Exception as e:
+                self.logger.error(f"Error processing file changes: {str(e)}")
 
         self.logger.error("Failed to implement solution after maximum attempts")
         return False

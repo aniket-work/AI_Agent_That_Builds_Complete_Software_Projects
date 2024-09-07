@@ -3,6 +3,7 @@ import subprocess
 from typing import Tuple
 from constants import AUTOPEP8_CMD, PYLINT_CMD, COMPLEXIPY_CMD, PYLINT_SCORE_PATTERN, COMPLEXIPY_SCORE_PATTERN
 
+
 def run_autopep8(file_path: str, cwd: str) -> None:
     cmd = AUTOPEP8_CMD + [file_path]
     try:
@@ -24,6 +25,7 @@ def run_pylint(file_path: str, cwd: str) -> Tuple[float, str]:
     pylint_score = float(score_match.group(1)) if score_match else 0.0
     return pylint_score, pylint_output
 
+
 def run_complexipy(file_path: str, cwd: str) -> Tuple[int, str]:
     cmd = COMPLEXIPY_CMD + [file_path]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
@@ -32,6 +34,7 @@ def run_complexipy(file_path: str, cwd: str) -> Tuple[int, str]:
     score_match = re.search(COMPLEXIPY_SCORE_PATTERN.format(escaped_path=escaped_path), complexipy_output, re.DOTALL)
     complexipy_score = int(score_match.group(1)) if score_match else None
     return complexipy_score, complexipy_output
+
 
 def check_code_quality(file_path: str, cwd: str) -> Tuple[float, int, str, str]:
     run_autopep8(file_path, cwd)

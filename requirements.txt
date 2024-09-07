@@ -1,4 +1,6 @@
 torch
+rich
+python-dotenv
 git+https://github.com/huggingface/transformers
 git+https://github.com/huggingface/accelerate
 nemo-agent
